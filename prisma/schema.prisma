@@ -1,0 +1,95 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Company {
+  id          String @id @default(cuid())
+  name        String
+  subdomain   String @unique
+  slug        String @unique
+  
+  // SIIGO Integration
+  siigoUsername    String?
+  siigoAccessKey   String? // Encrypted
+  siigoPartnerId   String?
+  
+  // Branding
+  logoUrl          String?
+  primaryColor     String @default("#2D5AA0")
+  secondaryColor   String @default("#FF6B35")
+  brandingConfig   Json?
+  
+  // Status
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  users       User[]
+  dashboards  DashboardConfig[]
+  
+  @@map("companies")
+}
+
+model User {
+  id          String @id @default(cuid())
+  email       String // Puede ser cualquier email (Gmail, Outlook, corporativo, etc.)
+  password    String
+  firstName   String?
+  lastName    String?
+  
+  // Company relation
+  companyId   String
+  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  // Role & Permissions (pueden ser diferentes por empresa)
+  role        UserRole @default(VIEWER)
+  permissions Json?
+  
+  // Status
+  isActive    Boolean @default(true)
+  lastLogin   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Permite mismo email en múltiples empresas con roles diferentes
+  @@unique([email, companyId])
+  @@map("users")
+}
+
+model DashboardConfig {
+  id          String @id @default(cuid())
+  companyId   String
+  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  type        DashboardType // PG, CXC, CXP, BALANCE
+  config      Json // Layout, filters, preferences
+  isActive    Boolean @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([companyId, type])
+  @@map("dashboard_configs")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  ACCOUNTANT
+  VIEWER
+}
+
+enum DashboardType {
+  PG      // Pérdidas y Ganancias
+  CXC     // Cuentas por Cobrar
+  CXP     // Cuentas por Pagar
+  BALANCE // Balance de Prueba
+}
